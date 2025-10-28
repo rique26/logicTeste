@@ -1,3 +1,18 @@
+# importado conjunto de dados das flores iris
+# 150 amostras de flores, 4 atributos e 3 classes (espécies)
+
+# Quais mudanças mínimas é preciso pra que o modelo randonForest 
+# preveja uma classe alvo
+
+# Exemplo: 
+# instanciou flor
+# inicialmente a florestsa classifica-a como setosa
+# o que precisa mudar para classificar como versicolor?
+
+
+# Percorre cada arvore do modelo de decisao randonforest treinado, e retorna 
+# os caminhos que levam a classe alvo
+
 def get_target_paths_per_tree(rf: RandomForestClassifier, target_class: int):
     """Retorna lista de caminhos alvo por árvore."""
     per_tree = []
@@ -5,12 +20,14 @@ def get_target_paths_per_tree(rf: RandomForestClassifier, target_class: int):
         per_tree.append(enumerate_target_paths_tree(est, target_class))
     return per_tree  # list of list-of-paths
 
-def setup_solver(rf: RandomForestClassifier, x: np.ndarray):
+# prepara o ambiente pra resolver o problema lógico com base nas regras aprendidas pelo modelo 
+
+def setup_solver(rf: RandomForestClassifier, x: np.ndarray): # debug: x = array([4.8, 3.4, 1.6, 0.2])
     """Cria pool, WCNF, thresholds e variáveis y(j,t)."""
     pool = IDPool()
     w = WCNF()
-    thresholds = collect_thresholds([rf])
-    y_vars = {(j, t): pool.id(('y', j, t)) for j, ts in thresholds.items() for t in ts}
+    thresholds = collect_thresholds([rf]) # debug: {3: [0.6000000014901161, 0.6500000059604645,...]}
+    y_vars = {(j, t): pool.id(('y', j, t)) for j, ts in thresholds.items() for t in ts} # debug: {(3, 0.6000000014901161): 1, (3, 0.6500000059604645): 2...}
     return pool, w, thresholds, y_vars
 
 def add_tree_constraints(w: WCNF, pool: IDPool, y_vars: Dict[Tuple[int,float], int],
@@ -27,12 +44,15 @@ def add_tree_constraints(w: WCNF, pool: IDPool, y_vars: Dict[Tuple[int,float], i
             continue
 
         k_list = []
-        for p_idx, path in enumerate(paths):
+        for p_idx, path in enumerate(paths): 
             k = pool.id(('k', t_idx, p_idx))
             k_vars[(t_idx, p_idx)] = k
             k_list.append(k)
             # k -> conjunção dos testes
-            for feat, thr, d in path:
+
+            # se um caminho é escolhido, todos os testes desse caminho devem ser satisfeitos pelos atributos da instância
+
+            for feat, thr, d in path: # debug: path = [(3, 0.800000011920929, 'L')] == (x(3) <= 0.8?) 
                 lit = y_vars[(feat, thr)]
                 w.append([-k, lit] if d == 'R' else [-k, -lit])
             # k -> z_t
@@ -43,6 +63,7 @@ def add_tree_constraints(w: WCNF, pool: IDPool, y_vars: Dict[Tuple[int,float], i
 
     return z_vars, k_vars
 
+# adiciona restrições de variáveis need serem verdadeiras
 def add_majority_constraint(w: WCNF, z_vars: List[int], rf: RandomForestClassifier):
     need = (len(rf.estimators_) // 2) + 1
     pool = IDPool()  # necessário para add_atleast_k
@@ -61,9 +82,11 @@ def extract_solver_result(m, y_vars, thresholds, x, feature_names, k_vars, per_t
             chosen_paths.setdefault(t_idx, []).append(per_tree_paths[t_idx][p_idx])
     return cost, changes_fmt, chosen_paths
 
+# Encontrar o menor número de mudanças necessárias na instância x para que a floresta rf vote na classe target_class.
+
 def solve_forest_min_changes(rf: RandomForestClassifier, x: np.ndarray, target_class: int,
                                      feature_names: List[str]) -> Tuple[int, List[str], Dict[int, List[Tuple[int,float,str]]]]:
-    """Função principal da floresta modularizada."""
+
     per_tree_paths = get_target_paths_per_tree(rf, target_class)
     pool, w, thresholds, y_vars = setup_solver(rf, x)
     add_sigma_monotonicity(w, thresholds, y_vars)
@@ -75,4 +98,20 @@ def solve_forest_min_changes(rf: RandomForestClassifier, x: np.ndarray, target_c
         m = rc2.compute()
 
     return extract_solver_result(m, y_vars, thresholds, x, feature_names, k_vars, per_tree_paths)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
