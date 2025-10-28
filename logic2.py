@@ -25,7 +25,12 @@ def get_target_paths_per_tree(rf: RandomForestClassifier, target_class: int):
 def setup_solver(rf: RandomForestClassifier, x: np.ndarray): # debug: x = array([4.8, 3.4, 1.6, 0.2])
     """Cria pool, WCNF, thresholds e variáveis y(j,t)."""
     pool = IDPool()
+# Ele serve para guardar as regras e restrições que o modelo vai respeitar — tipo:
+#“Se variável X for verdadeira, então Y também deve ser”,
+# O solver depois lê isso para achar a melhor solução.
     w = WCNF()
+
+    
     thresholds = collect_thresholds([rf]) # debug: {3: [0.6000000014901161, 0.6500000059604645,...]}
     y_vars = {(j, t): pool.id(('y', j, t)) for j, ts in thresholds.items() for t in ts} # debug: {(3, 0.6000000014901161): 1, (3, 0.6500000059604645): 2...}
     return pool, w, thresholds, y_vars
@@ -64,6 +69,7 @@ def add_tree_constraints(w: WCNF, pool: IDPool, y_vars: Dict[Tuple[int,float], i
     return z_vars, k_vars
 
 # adiciona restrições de variáveis need serem verdadeiras
+# Calcula quantas árvores precisam concordar para formar a maioria.
 def add_majority_constraint(w: WCNF, z_vars: List[int], rf: RandomForestClassifier):
     need = (len(rf.estimators_) // 2) + 1
     pool = IDPool()  # necessário para add_atleast_k
@@ -94,6 +100,7 @@ def solve_forest_min_changes(rf: RandomForestClassifier, x: np.ndarray, target_c
 
 # Traduz as regras das árvores em restrições lógicas.
 # Cada árvore vira um conjunto de proposições
+# estrutura de fórmulas lógicas 
     z_vars, k_vars = add_tree_constraints(w, pool, y_vars, per_tree_paths)
 
                                          
