@@ -91,7 +91,12 @@ def solve_forest_min_changes(rf: RandomForestClassifier, x: np.ndarray, target_c
     pool, w, thresholds, y_vars = setup_solver(rf, x)
     add_sigma_monotonicity(w, thresholds, y_vars)
     add_soft_tx(w, x, thresholds, y_vars)
+
+# Traduz as regras das árvores em restrições lógicas.
+# Cada árvore vira um conjunto de proposições
     z_vars, k_vars = add_tree_constraints(w, pool, y_vars, per_tree_paths)
+
+                                         
     add_majority_constraint(w, z_vars, rf)
 
     with RC2(w) as rc2:
